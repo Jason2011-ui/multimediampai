@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <p>Konten Creator</p>
           </div>
           <div class="card student">
-            <img src="assets/rafi.jpg" alt="Azka">
+            <img src="assets/azka.png" alt="Azka">
             <h4>👩‍🎓 Azka</h4>
             <p>Konten Creator</p>
           </div>
@@ -133,4 +133,5 @@ document.addEventListener('DOMContentLoaded', () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   navigate('beranda');
+
 });
