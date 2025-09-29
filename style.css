@@ -21,6 +21,17 @@ img {
   height: auto;
   border-radius: 8px;
 }
+/* logo */
+.logo-img {
+  max-height: 50px;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+}
 /* NAVBAR */
 .navbar {
   display: flex;
@@ -444,4 +455,5 @@ footer {
   .sosmed-icons span {
     font-size: 1rem;
   }
+
 }
