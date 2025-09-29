@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="shortcut icon" type="image/png" href="logomm.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Eskul Multimedia | MTs PLUS AL ISHLAH</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <header class="navbar">
+    <div class="logo">
+      <h1><i class="fas fa-film"></i> Multimedia</h1>
+      <p>MTs PLUS AL ISHLAH</p>
+    </div>
+    <div class="hamburger" id="hamburger">
+      <span></span><span></span><span></span>
+    </div>
+    <nav class="nav-links" id="navLinks">
+      <a onclick="navigate('beranda')" class="nav-link"><i class="fas fa-home"></i> Beranda</a>
+      <a onclick="navigate('class')" class="nav-link"><i class="fas fa-chalkboard"></i> Class</a>
+      <a onclick="navigate('penanggungjawab')" class="nav-link"><i class="fas fa-users"></i> Penanggung Jawab</a>
+      <a onclick="navigate('sosmed')" class="nav-link"><i class="fas fa-share-alt"></i> Sosmed</a>
+      <a href="https://discord.gg/qBh9K9ap4F" target="_blank" class="nav-link discord-btn">
+        <i class="fab fa-discord"></i> Join Discord
+      </a>
+    </nav>
+    <div class="overlay" id="overlay"></div>
+  </header>
+  <main id="main-content"></main>
+  <script src="script.js"></script>
+</body>
+</html>
