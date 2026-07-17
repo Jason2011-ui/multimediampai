@@ -5894,24 +5894,27 @@ async function renderAbsensi(){
         <div class="note-card">
           <label for="attendanceNote">Catatan absen</label>
           <textarea id="attendanceNote" placeholder="Wajib untuk Sakit/Izin. Untuk Hadir boleh dikosongkan, atau isi keterangan singkat bila perlu."></textarea>
-          <label for="attendanceQrCode" style="margin-top:12px">Kode QR harian (jika admin mengaktifkan)</label>
+          <label for="attendanceQrCode" style="margin-top:12px">Kode QR harian <span style="color:var(--red)">*wajib untuk Hadir</span></label>
           <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px">
-            <input id="attendanceQrCode" class="ipt" placeholder="Scan/ketik kode QR harian untuk Hadir" style="width:100%">
+            <input id="attendanceQrCode" class="ipt" placeholder="Scan/ketik kode QR dari admin untuk Hadir" style="width:100%">
             <button class="btn-ghost" style="height:42px;border-radius:12px;font-weight:800" onclick="openQrScanner()"><i class="fa-solid fa-camera"></i> Scan</button>
           </div>
         </div>`:''}
         <div class="location-card">
           <div class="location-card-head">
-            <div class="location-card-icon"><i class="fa-solid fa-qrcode"></i></div>
+            <div class="location-card-icon"><i class="fa-solid fa-location-crosshairs"></i></div>
             <div>
-              <h3>Validasi QR Hadir</h3>
-              <p>Status Hadir memakai QR/code harian dari admin. Jika kamera tidak bisa scan, masukkan kode secara manual. Sakit dan Izin cukup mengirim catatan.</p>
+              <h3>Syarat Absen Hadir</h3>
+              <p>Hadir hanya berlaku jika Anda berada di area sekolah (radius ${ATTENDANCE_RADIUS_M} m) dan admin telah membuka QR harian. Sakit dan Izin cukup mengirim catatan.</p>
             </div>
           </div>
           <div class="location-facts">
-            <div class="location-fact"><i class="fa-solid fa-qrcode"></i><span>Scan QR harian yang ditampilkan admin di sekolah.</span></div>
-            <div class="location-fact"><i class="fa-solid fa-keyboard"></i><span>Jika scanner tidak terbuka, ketik kode QR pada kolom yang tersedia.</span></div>
+            <div class="location-fact"><i class="fa-solid fa-location-dot"></i><span>Wajib di dalam area sekolah. Klik "Cek Lokasi" untuk memastikan GPS Anda valid sebelum Hadir.</span></div>
+            <div class="location-fact"><i class="fa-solid fa-qrcode"></i><span>Scan QR harian yang ditampilkan admin, atau ketik kode secara manual.</span></div>
             <div class="location-fact"><i class="fa-solid fa-table"></i><span>Data absen dikirim ke Supabase dan dapat disalin otomatis ke Spreadsheet jika webhook aktif.</span></div>
+          </div>
+          <div class="location-actions">
+            <button class="btn-location" id="checkLocationBtn" onclick="checkAttendanceLocation()"><i class="fa-solid fa-location-crosshairs"></i> Cek Lokasi</button>
           </div>
           <div class="location-result" id="locationResult"></div>
         </div>
@@ -5950,13 +5953,45 @@ async function doAbsen(status){
     const absensi=await getAbsensi();
     if(absensi.find(a=>a.userId===currentUser.id&&a.date===today)){toast('Anda sudah absen hari ini!','info');return;}
     const note=(document.getElementById('attendanceNote')?.value||'').trim();
+
+    if(status!=='hadir'){
+      if(note.length<8){
+        toast('Catatan wajib diisi minimal 8 karakter untuk Sakit/Izin.','error');
+        document.getElementById('attendanceNote')?.focus();
+        return;
+      }
+      const rec={
+        id:'ab'+Date.now()+Math.random().toString(36).slice(2),
+        userId:currentUser.id,username:currentUser.username,name:currentUser.name,
+        date:today,timestamp:Date.now(),status:status,sessionId:sess.loginAt,
+        addedBy:buildAttendanceMeta(status,note,null),
+        location:null,
+        qrCode:''
+      };
+      const error=await addAbsensi(rec);
+      if(error){toast('Gagal mencatat absensi: '+(error.message||'Error'),'error');return;}
+      toast('Kehadiran '+STATUS_LABELS[status]+' berhasil dicatat!','success');
+      renderAbsensi();
+      syncAttendanceToSpreadsheet(rec).then(sheetSync=>{
+        if(sheetSync.ok)toast('Absensi juga dikirim ke Spreadsheet.','success');
+        else if(sheetSync.skipped&&currentUser?.role==='admin')toast(sheetSync.message||'Webhook Spreadsheet belum dikonfigurasi.','info');
+      });
+      return;
+    }
+
+    // status === 'hadir'
+    // 1. Lokasi harus di dalam radius sekolah
+    toast('Memeriksa lokasi Anda...','info');
+    const loc=await checkAttendanceLocation(false);
+    if(!loc||!loc.inside){
+      toast('Absen Hadir ditolak: Anda harus berada di area sekolah.','error');
+      return;
+    }
+    // 2. Harus memasukkan kode QR harian yang dibuka admin
     const qrCode=(document.getElementById('attendanceQrCode')?.value||'').trim();
-    let loc=null;
-    if(status==='hadir'){
-      if(qrCode)toast('Memvalidasi kode QR harian...','info');
-    }else if(note.length<8){
-      toast('Catatan wajib diisi minimal 8 karakter untuk Sakit/Izin.','error');
-      document.getElementById('attendanceNote')?.focus();
+    if(!qrCode){
+      toast('Absen Hadir memerlukan kode QR harian yang dibuka admin.','error');
+      document.getElementById('attendanceQrCode')?.focus();
       return;
     }
     const rec={
@@ -5969,7 +6004,7 @@ async function doAbsen(status){
     };
     const error=await addAbsensi(rec);
     if(error){toast('Gagal mencatat absensi: '+(error.message||'Error'),'error');return;}
-    toast('Kehadiran '+STATUS_LABELS[status]+' berhasil dicatat!','success');
+    toast('Kehadiran Hadir berhasil dicatat!','success');
     renderAbsensi();
     syncAttendanceToSpreadsheet(rec).then(sheetSync=>{
       if(sheetSync.ok)toast('Absensi juga dikirim ke Spreadsheet.','success');
@@ -6817,7 +6852,7 @@ function renderAbsenTable(absensi,users){
       <button class="btn-ghost" style="height:42px; border-radius: 12px; font-weight:700;" onclick="showDailyQr()"><i class="fa-solid fa-eye"></i> Lihat</button>
       <button class="btn-ghost" style="height:42px; border-radius: 12px; font-weight:700;color:var(--red);background:var(--red-light)" onclick="removeDailyQr()"><i class="fa-solid fa-trash"></i> Hapus QR</button>
     </div>
-    <p style="color:var(--text-muted);font-size:0.76rem;font-weight:700;margin-top:10px">QR aktif selama 24 jam sejak dibuat. Jika QR dihapus atau kadaluarsa, Hadir tetap bisa masuk tanpa kode; kode lama tidak akan berlaku.</p>
+    <p style="color:var(--text-muted);font-size:0.76rem;font-weight:700;margin-top:10px">QR aktif selama 24 jam sejak dibuat. Absen <strong>Hadir</strong> hanya bisa dilakukan selama QR ini aktif dan siswa berada di area sekolah; jika QR dihapus/kadaluarsa, Hadir tidak bisa dilakukan sampai admin membuka QR kembali.</p>
     <div id="dailyQrResult" class="location-result"></div>
   </div>
 
