@@ -2904,8 +2904,56 @@ img {
   display: block;
 }
 
+.typing-length-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.typing-length-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.typing-length-options {
+  display: flex;
+  gap: 8px;
+}
+
+.typing-length-btn {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  font-weight: 800;
+  font-size: 0.8rem;
+  transition: var(--transition);
+}
+
+.typing-length-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.typing-length-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
 .typing-words {
-  min-height: 170px;
+  height: 148px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
   border-radius: 18px;
   background: rgba(8, 101, 228, 0.04);
   padding: 18px;
@@ -2931,9 +2979,30 @@ img {
 }
 
 .typing-words span.current {
-  color: var(--primary);
+  padding: 0 4px;
   background: rgba(8, 101, 228, 0.1);
   border-radius: 6px;
+}
+
+.typing-words span.current span {
+  display: inline;
+  margin-right: 0;
+  padding: 0;
+  color: var(--primary);
+}
+
+.typing-words span.current span.char-ok {
+  color: var(--green);
+}
+
+.typing-words span.current span.char-bad {
+  color: var(--red);
+  background: var(--red-light);
+  border-radius: 3px;
+}
+
+.typing-words span.current span.char-extra {
+  text-decoration: underline;
 }
 
 .typing-input {
@@ -4697,7 +4766,7 @@ footer p {
       <div class="section-header">
         <div class="section-tag">Pembiasaan Multimedia</div>
         <h2 class="section-title">10FastFinger</h2>
-        <p class="section-desc">Latihan mengetik desktop untuk meningkatkan kecepatan produksi konten.</p>
+        <p class="section-desc">Latihan mengetik desktop untuk meningkatkan kecepatan produksi konten. Pilih 200 kata untuk latihan singkat atau 1000 kata untuk latihan panjang.</p>
       </div>
       <div id="typingContent"></div>
     </section>
@@ -5966,6 +6035,9 @@ function getPosition(){
 }
 
 async function checkAttendanceLocation(showToast=true){
+  // Catatan: lokasi TIDAK lagi menjadi syarat absen Hadir. Absen bisa dilakukan
+  // di mana saja, selama kode/QR harian yang valid dimasukkan. Fungsi ini hanya
+  // mencatat lokasi sebagai informasi tambahan (opsional) pada riwayat absen.
   const btn=document.getElementById('checkLocationBtn');
   if(btn){
     btn.disabled=true;
@@ -5980,33 +6052,21 @@ async function checkAttendanceLocation(showToast=true){
       checkedAt:Date.now()
     };
     loc.distance=distanceInMeters(SCHOOL_LOCATION,loc);
-    loc.inside=loc.distance<=ATTENDANCE_RADIUS_M&&loc.accuracy<=MAX_LOCATION_ACCURACY_M;
+    loc.inside=true; // tidak lagi dipakai untuk memblokir absen
     lastAttendanceLocation=loc;
 
-    if(loc.inside){
-      setLocationResult('ok',`<i class="fa-solid fa-circle-check"></i> Lokasi valid. ${locationMetaText(loc)} dari titik sekolah.`);
-      if(showToast)toast('Lokasi valid, Anda berada di sekitar sekolah.','success');
-      return loc;
-    }
-
-    if(loc.accuracy>MAX_LOCATION_ACCURACY_M){
-      setLocationResult('warn',`<i class="fa-solid fa-satellite-dish"></i> GPS belum cukup akurat. ${locationMetaText(loc)}. Aktifkan mode akurasi tinggi lalu coba lagi.`);
-      if(showToast)toast('GPS belum akurat, coba aktifkan akurasi tinggi.','error');
-      return null;
-    }
-
-    setLocationResult('bad',`<i class="fa-solid fa-location-dot"></i> Anda di luar area absen. ${locationMetaText(loc)} dari sekolah, batas ${ATTENDANCE_RADIUS_M}m.`);
-    if(showToast)toast('Absen ditolak karena lokasi di luar area sekolah.','error');
-    return null;
+    setLocationResult('ok',`<i class="fa-solid fa-circle-check"></i> Lokasi tercatat (opsional). ${locationMetaText(loc)} dari titik sekolah. Absen tetap sah dari mana saja selama kode/QR valid.`);
+    if(showToast)toast('Lokasi berhasil dicatat sebagai informasi tambahan.','success');
+    return loc;
   }catch(e){
     const isDenied=e.code===1;
     const msg=!window.isSecureContext
       ?'GPS browser hanya aktif jika website dibuka lewat HTTPS atau localhost.'
       :isDenied
-      ?'Izin lokasi ditolak. Aktifkan Location/GPS dan izinkan akses lokasi untuk website ini.'
-      :'Gagal membaca lokasi. Aktifkan GPS, pastikan koneksi stabil, lalu coba lagi.';
-    setLocationResult('bad',`<i class="fa-solid fa-circle-exclamation"></i> ${msg}`);
-    if(showToast)toast(msg,'error');
+      ?'Izin lokasi ditolak. Ini tidak masalah, lokasi hanya opsional dan tidak wajib untuk absen.'
+      :'Gagal membaca lokasi. Ini tidak masalah, lokasi hanya opsional dan tidak wajib untuk absen.';
+    setLocationResult('warn',`<i class="fa-solid fa-circle-info"></i> ${msg}`);
+    if(showToast)toast(msg,'info');
     return null;
   }finally{
     if(btn){
@@ -6103,7 +6163,7 @@ async function renderAbsensi(){
           <textarea id="attendanceNote" placeholder="Wajib untuk Sakit/Izin. Untuk Hadir boleh dikosongkan, atau isi keterangan singkat bila perlu."></textarea>
           <label for="attendanceQrCode" style="margin-top:12px">Kode QR harian <span style="color:var(--red)">*wajib untuk Hadir</span></label>
           <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px">
-            <input id="attendanceQrCode" class="ipt" placeholder="Scan/ketik kode QR dari admin untuk Hadir" style="width:100%">
+            <input id="attendanceQrCode" class="ipt" placeholder="Wajib diisi: scan/ketik kode QR harian dari admin (bisa dari mana saja)" style="width:100%">
             <button class="btn-ghost" style="height:42px;border-radius:12px;font-weight:800" onclick="openQrScanner()"><i class="fa-solid fa-camera"></i> Scan</button>
           </div>
         </div>`:''}
@@ -6112,16 +6172,17 @@ async function renderAbsensi(){
             <div class="location-card-icon"><i class="fa-solid fa-location-crosshairs"></i></div>
             <div>
               <h3>Syarat Absen Hadir</h3>
-              <p>Hadir hanya berlaku jika Anda berada di area sekolah (radius ${ATTENDANCE_RADIUS_M} m) dan admin telah membuka QR harian. Sakit dan Izin cukup mengirim catatan.</p>
+              <p>Absen Hadir bisa dilakukan di mana saja, tidak wajib berada di sekolah. Wajib memasukkan kode/QR harian yang dibuka admin. Sakit dan Izin cukup mengirim catatan.</p>
             </div>
           </div>
           <div class="location-facts">
-            <div class="location-fact"><i class="fa-solid fa-location-dot"></i><span>Wajib di dalam area sekolah. Klik "Cek Lokasi" untuk memastikan GPS Anda valid sebelum Hadir.</span></div>
-            <div class="location-fact"><i class="fa-solid fa-qrcode"></i><span>Scan QR harian yang ditampilkan admin, atau ketik kode secara manual.</span></div>
+            <div class="location-fact"><i class="fa-solid fa-earth-asia"></i><span>Bisa absen dari mana saja - rumah, jalan, atau lokasi lain. Lokasi sekolah tidak lagi menjadi syarat.</span></div>
+            <div class="location-fact"><i class="fa-solid fa-qrcode"></i><span>Wajib: scan QR harian yang ditampilkan admin, atau ketik kode secara manual. Tanpa kode/QR, absen Hadir ditolak.</span></div>
+            <div class="location-fact"><i class="fa-solid fa-location-dot"></i><span>"Cek Lokasi" bersifat opsional, hanya untuk mencatat titik lokasi sebagai informasi tambahan.</span></div>
             <div class="location-fact"><i class="fa-solid fa-table"></i><span>Data absen dikirim ke Supabase dan dapat disalin otomatis ke Spreadsheet jika webhook aktif.</span></div>
           </div>
           <div class="location-actions">
-            <button class="btn-location" id="checkLocationBtn" onclick="checkAttendanceLocation()"><i class="fa-solid fa-location-crosshairs"></i> Cek Lokasi</button>
+            <button class="btn-location" id="checkLocationBtn" onclick="checkAttendanceLocation()"><i class="fa-solid fa-location-crosshairs"></i> Cek Lokasi (Opsional)</button>
           </div>
           <div class="location-result" id="locationResult"></div>
         </div>
@@ -6131,8 +6192,9 @@ async function renderAbsensi(){
           <h3>Mode Absen Digital</h3>
           <ul>
             <li><i class="fa-solid fa-circle-check"></i><span>Android memakai satu layar vertikal agar tombol mudah dijangkau.</span></li>
-            <li><i class="fa-solid fa-desktop"></i><span>Desktop memakai dua area: panel absen dan riwayat/aturan lokasi.</span></li>
-            <li><i class="fa-solid fa-shield-halved"></i><span>Status Hadir memakai QR/code harian; Sakit/Izin wajib catatan untuk validasi admin.</span></li>
+            <li><i class="fa-solid fa-desktop"></i><span>Desktop memakai dua area: panel absen dan riwayat/aturan.</span></li>
+            <li><i class="fa-solid fa-earth-asia"></i><span>Absen Hadir bisa di mana saja, tidak lagi wajib berada di sekolah.</span></li>
+            <li><i class="fa-solid fa-shield-halved"></i><span>Status Hadir wajib pakai QR/kode harian; Sakit/Izin wajib catatan untuk validasi admin.</span></li>
           </ul>
         </div>
         <div class="history-card">
@@ -6187,20 +6249,19 @@ async function doAbsen(status){
     }
 
     // status === 'hadir'
-    // 1. Lokasi harus di dalam radius sekolah
-    toast('Memeriksa lokasi Anda...','info');
-    const loc=await checkAttendanceLocation(false);
-    if(!loc||!loc.inside){
-      toast('Absen Hadir ditolak: Anda harus berada di area sekolah.','error');
-      return;
-    }
-    // 2. Harus memasukkan kode QR harian yang dibuka admin
+    // Absen Hadir sekarang bisa dilakukan di mana saja (tidak wajib di area sekolah).
+    // Satu-satunya syarat wajib adalah kode/QR harian yang dibuka admin.
     const qrCode=(document.getElementById('attendanceQrCode')?.value||'').trim();
     if(!qrCode){
       toast('Absen Hadir memerlukan kode QR harian yang dibuka admin.','error');
       document.getElementById('attendanceQrCode')?.focus();
       return;
     }
+    // Lokasi bersifat opsional dan hanya dicatat sebagai info tambahan bila
+    // tersedia/diizinkan; tidak pernah memblokir proses absen.
+    const loc=lastAttendanceLocation&&(Date.now()-lastAttendanceLocation.checkedAt)<10*60*1000
+      ?lastAttendanceLocation
+      :await checkAttendanceLocation(false).catch(()=>null);
     const rec={
       id:'ab'+Date.now()+Math.random().toString(36).slice(2),
       userId:currentUser.id,username:currentUser.username,name:currentUser.name,
@@ -6614,7 +6675,9 @@ async function saveProfileCustomForm(){
 }
 
 /* 10FASTFINGER DESKTOP TEST */
-const TYPING_WORD_BANK='multimedia desain kamera editing konten video audio naskah poster sosial media kreatif sekolah al ishlah produksi visual foto render animasi tipografi warna layout publikasi dokumentasi keyboard cepat akurat karya tim proyek studio berita caption thumbnail presentasi komunikasi literasi digital komputer aplikasi jaringan'.split(' ');
+const TYPING_WORD_BANK='yang untuk dengan tidak ini dari dalam akan pada juga saya kita mereka dia kami adalah ada bisa sudah saat oleh atau jika maka agar serta hingga sampai tetapi namun karena sebab ketika sambil selama meski walau lalu kemudian setelah sebelum baru masih pernah selalu sering kadang jarang belum pun saja begitu seperti sekali sangat cukup lebih kurang paling nyaris hampir semua tiap masing banyak sedikit besar kecil panjang pendek tinggi rendah luas sempit baik buruk baru lama muda tua cepat lambat mudah sulit ringan berat terang gelap bersih kotor kuat lemah penuh kosong dekat jauh atas bawah kanan kiri depan belakang tengah luar dalam rumah sekolah kantor pasar jalan kota desa negara dunia waktu hari malam pagi siang sore tahun bulan minggu jam menit detik orang anak teman keluarga guru murid warga tetangga masyarakat pekerjaan tugas rencana tujuan hasil usaha cara jalan pikiran hati perasaan harapan mimpi cita cerita kabar berita pesan surat buku catatan halaman kalimat kata huruf angka nomor daftar contoh alasan masalah solusi jawaban pertanyaan pilihan keputusan aturan hak kewajiban janji kesempatan kejadian peristiwa acara kegiatan latihan permainan olahraga musik seni budaya alam air udara api tanah langit laut sungai gunung hutan pohon bunga daun buah makanan minuman nasi roti sayur daging ikan susu gula garam warna merah biru hijau kuning hitam putih pagi bekerja belajar membaca menulis berbicara mendengar melihat berjalan berlari duduk berdiri tidur bangun makan minum membuat memberi menerima membawa mengambil menaruh membuka menutup memulai mengakhiri mencoba berhasil gagal senang sedih marah takut bingung yakin ragu percaya harap ingin mau perlu wajib boleh dapat mampu paham mengerti tahu kenal ingat lupa'.split(' ');
+const TYPING_LENGTH_OPTIONS=[200,1000];
+let typingWordCount=200;
 let typingState=null;
 let typingScoresCache=[];
 
@@ -6626,10 +6689,25 @@ function saveTypingScores(scores){
   typingScoresCache=scores.slice(0,10);
 }
 
-function makeTypingWords(){
+function makeTypingWords(count=typingWordCount){
   const words=[];
-  for(let i=0;i<60;i++)words.push(TYPING_WORD_BANK[Math.floor(Math.random()*TYPING_WORD_BANK.length)]);
+  for(let i=0;i<count;i++)words.push(TYPING_WORD_BANK[Math.floor(Math.random()*TYPING_WORD_BANK.length)]);
   return words;
+}
+
+function newTypingState(){
+  return {words:makeTypingWords(typingWordCount),total:typingWordCount,index:0,correct:0,wrong:0,results:[],start:null,elapsed:0,finished:false};
+}
+
+function setTypingWordCount(count){
+  if(typingState&&typingState.start&&!typingState.finished){
+    toast('Selesaikan atau reset test yang sedang berjalan dulu.','info');
+    return;
+  }
+  typingWordCount=count;
+  clearInterval(window._typingTick);
+  typingState=newTypingState();
+  renderTyping();
 }
 
 function renderTyping(){
@@ -6652,20 +6730,27 @@ function renderTyping(){
       </div>`;
     return;
   }
-  if(!typingState)typingState={words:makeTypingWords(),index:0,correct:0,wrong:0,start:null,left:60,finished:false};
+  if(!typingState)typingState=newTypingState();
   loadTypingLeaderboard().then(scores=>{
     saveTypingScores(scores);
     const lb=document.getElementById('typingLeaderboard');
     if(lb)lb.innerHTML=renderTypingLeaderboard();
   });
+  const lengthButtonsHTML=TYPING_LENGTH_OPTIONS.map(n=>
+    `<button class="typing-length-btn${typingWordCount===n?' active':''}" onclick="setTypingWordCount(${n})">${n} Kata</button>`
+  ).join('');
   el.innerHTML=`
     <div class="typing-layout typing-desktop-only">
       <div class="typing-card">
+        <div class="typing-length-picker">
+          <span class="typing-length-label"><i class="fa-solid fa-list-ol"></i> Panjang Test</span>
+          <div class="typing-length-options">${lengthButtonsHTML}</div>
+        </div>
         <div class="typing-stat-grid">
-          <div class="typing-stat"><strong id="typingTime">${typingState.left}</strong><span>Detik</span></div>
+          <div class="typing-stat"><strong id="typingTime">0</strong><span>Detik</span></div>
           <div class="typing-stat"><strong id="typingWpm">${calcTypingWpm()}</strong><span>WPM</span></div>
           <div class="typing-stat"><strong id="typingAcc">${calcTypingAccuracy()}%</strong><span>Akurasi</span></div>
-          <div class="typing-stat"><strong id="typingDone">${typingState.correct}</strong><span>Benar</span></div>
+          <div class="typing-stat"><strong id="typingDone">${typingState.index}/${typingState.total}</strong><span>Progress</span></div>
         </div>
         <div class="typing-words" id="typingWords">${renderTypingWords()}</div>
         <input class="typing-input" id="typingInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ketik kata yang disorot lalu tekan spasi..." oninput="handleTypingInput()">
@@ -6683,10 +6768,31 @@ function renderTyping(){
 
 function renderTypingWords(){
   if(!typingState)return'';
+  const input=document.getElementById('typingInput');
+  const typedNow=input?input.value:'';
   return typingState.words.map((w,i)=>{
-    const cls=i<typingState.index?'done':i===typingState.index?'current':'';
-    return `<span class="${cls}">${w}</span>`;
+    if(i<typingState.index){
+      const ok=typingState.results?typingState.results[i]!==false:true;
+      return `<span class="${ok?'done':'bad'}">${esc(w)}</span>`;
+    }
+    if(i===typingState.index){
+      let chars='';
+      for(let c=0;c<w.length;c++){
+        const typedChar=typedNow[c];
+        const cls=typedChar===undefined?'':(typedChar===w[c]?'char-ok':'char-bad');
+        chars+=`<span class="${cls}">${esc(w[c])}</span>`;
+      }
+      if(typedNow.length>w.length)chars+=`<span class="char-bad char-extra">${esc(typedNow.slice(w.length))}</span>`;
+      return `<span class="current" id="typingCurrentWord">${chars}</span>`;
+    }
+    return `<span>${esc(w)}</span>`;
   }).join('');
+}
+
+function scrollTypingIntoView(){
+  const cur=document.getElementById('typingCurrentWord');
+  const box=document.getElementById('typingWords');
+  if(cur&&box)cur.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
 
 function calcTypingWpm(){
@@ -6702,9 +6808,9 @@ function calcTypingAccuracy(){
 }
 
 function startTypingTest(){
-  if(!typingState||typingState.finished)typingState={words:makeTypingWords(),index:0,correct:0,wrong:0,start:null,left:60,finished:false};
+  if(!typingState||typingState.finished)typingState=newTypingState();
   typingState.start=Date.now();
-  typingState.left=60;
+  typingState.elapsed=0;
   clearInterval(window._typingTick);
   window._typingTick=setInterval(updateTypingClock,1000);
   const input=document.getElementById('typingInput');
@@ -6716,23 +6822,37 @@ function handleTypingInput(){
   const input=document.getElementById('typingInput');
   if(!typingState||typingState.finished||!input)return;
   if(!typingState.start)startTypingTest();
-  if(!input.value.endsWith(' '))return;
+  if(!input.value.endsWith(' ')){
+    document.getElementById('typingWords').innerHTML=renderTypingWords();
+    scrollTypingIntoView();
+    return;
+  }
   const typed=input.value.trim();
   const target=typingState.words[typingState.index];
-  if(typed===target)typingState.correct++;
+  const ok=typed===target;
+  if(!typingState.results)typingState.results=[];
+  typingState.results[typingState.index]=ok;
+  if(ok)typingState.correct++;
   else typingState.wrong++;
   typingState.index++;
   input.value='';
   document.getElementById('typingWords').innerHTML=renderTypingWords();
-  if(typingState.index>=typingState.words.length)finishTypingTest();
+  scrollTypingIntoView();
+  if(typingState.index>=typingState.words.length){finishTypingTest();return;}
   updateTypingStats();
 }
 
 function updateTypingClock(){
   if(!typingState||!typingState.start)return;
-  typingState.left=Math.max(0,60-Math.floor((Date.now()-typingState.start)/1000));
+  typingState.elapsed=Math.floor((Date.now()-typingState.start)/1000);
   updateTypingStats();
-  if(typingState.left<=0)finishTypingTest();
+}
+
+function formatTypingTime(sec){
+  sec=sec||0;
+  const m=Math.floor(sec/60);
+  const s=sec%60;
+  return m>0?`${m}m ${String(s).padStart(2,'0')}s`:`${s}s`;
 }
 
 function updateTypingStats(){
@@ -6740,30 +6860,32 @@ function updateTypingStats(){
   const w=document.getElementById('typingWpm');
   const a=document.getElementById('typingAcc');
   const d=document.getElementById('typingDone');
-  if(t)t.textContent=typingState?.left??60;
+  if(t)t.textContent=formatTypingTime(typingState?.elapsed??0);
   if(w)w.textContent=calcTypingWpm();
   if(a)a.textContent=calcTypingAccuracy()+'%';
-  if(d)d.textContent=typingState?.correct??0;
+  if(d)d.textContent=`${typingState?.index??0}/${typingState?.total??typingWordCount}`;
 }
 
 function finishTypingTest(){
   if(!typingState||typingState.finished)return;
   typingState.finished=true;
+  typingState.elapsed=typingState.start?Math.floor((Date.now()-typingState.start)/1000):typingState.elapsed;
   clearInterval(window._typingTick);
-  const score={name:currentUser?.name||'Anggota',username:currentUser?.username||'guest',wpm:calcTypingWpm(),accuracy:calcTypingAccuracy(),correct:typingState.correct,wrong:typingState.wrong,at:Date.now()};
+  const score={name:currentUser?.name||'Anggota',username:currentUser?.username||'guest',wpm:calcTypingWpm(),accuracy:calcTypingAccuracy(),correct:typingState.correct,wrong:typingState.wrong,words:typingState.total,at:Date.now()};
   submitTypingScore(score).then(({error})=>{if(error)toast('Skor lokal tersimpan, tapi gagal sync leaderboard.','error');});
   const scores=[score,...getTypingScores()].sort((a,b)=>b.wpm-a.wpm||b.accuracy-a.accuracy).slice(0,10);
   saveTypingScores(scores);
   const input=document.getElementById('typingInput');
   if(input)input.disabled=true;
+  updateTypingStats();
   const lb=document.getElementById('typingLeaderboard');
   if(lb)lb.innerHTML=renderTypingLeaderboard();
-  toast(`Test selesai: ${score.wpm} WPM, akurasi ${score.accuracy}%`,'success');
+  toast(`Test ${score.words} kata selesai dalam ${formatTypingTime(typingState.elapsed)}: ${score.wpm} WPM, akurasi ${score.accuracy}%`,'success');
 }
 
 function resetTypingTest(){
   clearInterval(window._typingTick);
-  typingState={words:makeTypingWords(),index:0,correct:0,wrong:0,start:null,left:60,finished:false};
+  typingState=newTypingState();
   renderTyping();
 }
 
@@ -7059,12 +7181,13 @@ function renderAbsenTable(absensi,users){
       <button class="btn-ghost" style="height:42px; border-radius: 12px; font-weight:700;" onclick="showDailyQr()"><i class="fa-solid fa-eye"></i> Lihat</button>
       <button class="btn-ghost" style="height:42px; border-radius: 12px; font-weight:700;color:var(--red);background:var(--red-light)" onclick="removeDailyQr()"><i class="fa-solid fa-trash"></i> Hapus QR</button>
     </div>
-    <p style="color:var(--text-muted);font-size:0.76rem;font-weight:700;margin-top:10px">QR aktif selama 24 jam sejak dibuat. Absen <strong>Hadir</strong> hanya bisa dilakukan selama QR ini aktif dan siswa berada di area sekolah; jika QR dihapus/kadaluarsa, Hadir tidak bisa dilakukan sampai admin membuka QR kembali.</p>
+    <p style="color:var(--text-muted);font-size:0.76rem;font-weight:700;margin-top:10px">QR aktif selama 24 jam sejak dibuat. Absen <strong>Hadir</strong> mandiri oleh anggota wajib memasukkan QR/kode ini (bisa dari mana saja, tidak wajib di sekolah). Admin tetap bisa mencatat Hadir untuk anggota lain secara manual di form bawah tanpa QR.</p>
     <div id="dailyQrResult" class="location-result"></div>
   </div>
 
   <div class="alfa-form">
-    <h4><i class="fa-solid fa-user-slash text-red"></i> Catat Absen Ketidakhadiran (Admin)</h4>
+    <h4><i class="fa-solid fa-user-pen text-red"></i> Catat Absen Manual (Admin)</h4>
+    <p style="color:var(--text-muted);font-size:0.76rem;font-weight:700;margin-bottom:12px">Admin bisa mencatat absen <strong>Hadir</strong> untuk akun anggota lain (tanpa perlu kode/QR dari anggota tersebut), atau mencatat Sakit/Izin/Alfa.</p>
     <div class="alfa-row">
       <div class="alfa-field">
         <label>Anggota Club</label>
@@ -7077,6 +7200,7 @@ function renderAbsenTable(absensi,users){
       <div class="alfa-field">
         <label>Pilih Status</label>
         <select id="alfaStatus">
+          <option value="hadir">Hadir</option>
           <option value="alfa">Alfa</option>
           <option value="sakit">Sakit</option>
           <option value="izin">Izin</option>
